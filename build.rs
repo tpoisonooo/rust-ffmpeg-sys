@@ -32,11 +32,7 @@ impl Library {
 
 static LIBRARIES: &[Library] = &[
     Library {
-        name: "avcodec",
-        is_feature: true,
-    },
-    Library {
-        name: "avdevice",
+        name: "avformat",
         is_feature: true,
     },
     Library {
@@ -44,7 +40,11 @@ static LIBRARIES: &[Library] = &[
         is_feature: true,
     },
     Library {
-        name: "avformat",
+        name: "avdevice",
+        is_feature: true,
+    },
+    Library {
+        name: "avcodec",
         is_feature: true,
     },
     Library {
