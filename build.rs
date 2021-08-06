@@ -630,7 +630,7 @@ fn link_to_libraries(statik: bool) {
 fn main() {
     let statik = env::var("CARGO_FEATURE_STATIC").is_ok();
 
-    let include_paths: Vec<PathBuf> = if env::var("CARGO_FEATURE_BUILD").is_ok() {
+    let include_paths: Vec<PathBuf> = if env::var("CARGO_FEATURE_PREBUILD").is_err() {
         println!(
             "cargo:rustc-link-search=native={}",
             search().join("lib").to_string_lossy()
