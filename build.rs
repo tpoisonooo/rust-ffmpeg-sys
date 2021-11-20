@@ -162,7 +162,11 @@ fn search() -> PathBuf {
 fn fetch() -> io::Result<()> {
     let output_base_path = output();
     let clone_dest_dir = format!("ffmpeg-{}", version());
-    let _ = std::fs::remove_dir_all(output_base_path.join(&clone_dest_dir));
+
+    let target_dir = output_base_path.join(&clone_dest_dir);
+    if target_dir.exists() {
+        return Ok(());
+    }
     let status = Command::new("git")
         .current_dir(&output_base_path)
         .arg("clone")
@@ -197,6 +201,10 @@ fn build() -> io::Result<()> {
     assert!(configure_path.exists());
     let mut configure = Command::new(&configure_path);
     configure.current_dir(&source_dir);
+
+    // enable v4l2 and show to open camera on LInux and Windows
+    configure.arg("--enable-libv4l2");
+    // configure.arg("--enable-indevs dshow");
 
     configure.arg(format!("--prefix={}", search().to_string_lossy()));
 
@@ -250,14 +258,6 @@ fn build() -> io::Result<()> {
         };
     }
 
-    // macro_rules! disable {
-    //     ($conf:expr, $feat:expr, $name:expr) => (
-    //         if env::var(concat!("CARGO_FEATURE_", $feat)).is_err() {
-    //             $conf.arg(concat!("--disable-", $name));
-    //         }
-    //     )
-    // }
-
     // the binary using ffmpeg-sys must comply with GPL
     switch(&mut configure, "BUILD_LICENSE_GPL", "gpl");
 
@@ -269,6 +269,7 @@ fn build() -> io::Result<()> {
 
     // configure building libraries based on features
     for lib in LIBRARIES.iter().filter(|lib| lib.is_feature) {
+        println!("libname {}", lib.name);
         switch(&mut configure, &lib.name.to_uppercase(), lib.name);
     }
 
@@ -285,26 +286,35 @@ fn build() -> io::Result<()> {
     enable!(configure, "BUILD_LIB_FRIBIDI", "libfribidi");
     enable!(configure, "BUILD_LIB_OPENCV", "libopencv");
 
-    // configure external encoders/decoders
+    // disable all encoders
+    configure.arg("--disable-encoders");
+    // diable all outdevs
+    configure.arg("--disable-outdevs");
+
+    
+    // enable!(configure, "BUILD_LIB_CELT", "libcelt");
+    // enable!(configure, "BUILD_LIB_FAAC", "libfaac");
+    // enable!(configure, "BUILD_LIB_FDK_AAC", "libfdk-aac");
+    // enable!(configure, "BUILD_LIB_MP3LAME", "libmp3lame");
+    // enable!(configure, "BUILD_LIB_OPENCORE_AMRNB", "libopencore-amrnb");
+    // enable!(configure, "BUILD_LIB_OPENCORE_AMRWB", "libopencore-amrwb");
+    // enable!(configure, "BUILD_LIB_OPUS", "libopus");
+    // enable!(configure, "BUILD_LIB_SCHROEDINGER", "libschroedinger");
+    // enable!(configure, "BUILD_LIB_SHINE", "libshine");
+    // enable!(configure, "BUILD_LIB_SPEEX", "libspeex");
+    // enable!(configure, "BUILD_LIB_VO_AACENC", "libvo-aacenc");
+    // enable!(configure, "BUILD_LIB_VO_AMRWBENC", "libvo-amrwbenc");
+
+    // configure external encoders
     enable!(configure, "BUILD_LIB_AACPLUS", "libaacplus");
-    enable!(configure, "BUILD_LIB_CELT", "libcelt");
     enable!(configure, "BUILD_LIB_DCADEC", "libdcadec");
-    enable!(configure, "BUILD_LIB_FAAC", "libfaac");
-    enable!(configure, "BUILD_LIB_FDK_AAC", "libfdk-aac");
     enable!(configure, "BUILD_LIB_GSM", "libgsm");
     enable!(configure, "BUILD_LIB_ILBC", "libilbc");
     enable!(configure, "BUILD_LIB_VAZAAR", "libvazaar");
-    enable!(configure, "BUILD_LIB_MP3LAME", "libmp3lame");
-    enable!(configure, "BUILD_LIB_OPENCORE_AMRNB", "libopencore-amrnb");
-    enable!(configure, "BUILD_LIB_OPENCORE_AMRWB", "libopencore-amrwb");
     enable!(configure, "BUILD_LIB_OPENH264", "libopenh264");
     enable!(configure, "BUILD_LIB_OPENH265", "libopenh265");
     enable!(configure, "BUILD_LIB_OPENJPEG", "libopenjpeg");
-    enable!(configure, "BUILD_LIB_OPUS", "libopus");
-    enable!(configure, "BUILD_LIB_SCHROEDINGER", "libschroedinger");
-    enable!(configure, "BUILD_LIB_SHINE", "libshine");
     enable!(configure, "BUILD_LIB_SNAPPY", "libsnappy");
-    enable!(configure, "BUILD_LIB_SPEEX", "libspeex");
     enable!(
         configure,
         "BUILD_LIB_STAGEFRIGHT_H264",
@@ -313,8 +323,6 @@ fn build() -> io::Result<()> {
     enable!(configure, "BUILD_LIB_THEORA", "libtheora");
     enable!(configure, "BUILD_LIB_TWOLAME", "libtwolame");
     enable!(configure, "BUILD_LIB_UTVIDEO", "libutvideo");
-    enable!(configure, "BUILD_LIB_VO_AACENC", "libvo-aacenc");
-    enable!(configure, "BUILD_LIB_VO_AMRWBENC", "libvo-amrwbenc");
     enable!(configure, "BUILD_LIB_VORBIS", "libvorbis");
     enable!(configure, "BUILD_LIB_VPX", "libvpx");
     enable!(configure, "BUILD_LIB_WAVPACK", "libwavpack");
@@ -339,8 +347,9 @@ fn build() -> io::Result<()> {
     let output = configure
         .output()
         .unwrap_or_else(|_| panic!("{:?} failed", configure));
+    println!("configure: {}", String::from_utf8_lossy(&output.stdout));
+    
     if !output.status.success() {
-        println!("configure: {}", String::from_utf8_lossy(&output.stdout));
 
         return Err(io::Error::new(
             io::ErrorKind::Other,
@@ -1062,92 +1071,92 @@ fn main() {
         .clang_args(clang_includes)
         .ctypes_prefix("libc")
         // https://github.com/rust-lang/rust-bindgen/issues/550
-        .blacklist_type("max_align_t")
-        .blacklist_function("_.*")
+        .blocklist_type("max_align_t")
+        .blocklist_function("_.*")
         // Blacklist functions with u128 in signature.
         // https://github.com/zmwangx/rust-ffmpeg-sys/issues/1
         // https://github.com/rust-lang/rust-bindgen/issues/1549
-        .blacklist_function("acoshl")
-        .blacklist_function("acosl")
-        .blacklist_function("asinhl")
-        .blacklist_function("asinl")
-        .blacklist_function("atan2l")
-        .blacklist_function("atanhl")
-        .blacklist_function("atanl")
-        .blacklist_function("cbrtl")
-        .blacklist_function("ceill")
-        .blacklist_function("copysignl")
-        .blacklist_function("coshl")
-        .blacklist_function("cosl")
-        .blacklist_function("dreml")
-        .blacklist_function("ecvt_r")
-        .blacklist_function("erfcl")
-        .blacklist_function("erfl")
-        .blacklist_function("exp2l")
-        .blacklist_function("expl")
-        .blacklist_function("expm1l")
-        .blacklist_function("fabsl")
-        .blacklist_function("fcvt_r")
-        .blacklist_function("fdiml")
-        .blacklist_function("finitel")
-        .blacklist_function("floorl")
-        .blacklist_function("fmal")
-        .blacklist_function("fmaxl")
-        .blacklist_function("fminl")
-        .blacklist_function("fmodl")
-        .blacklist_function("frexpl")
-        .blacklist_function("gammal")
-        .blacklist_function("hypotl")
-        .blacklist_function("ilogbl")
-        .blacklist_function("isinfl")
-        .blacklist_function("isnanl")
-        .blacklist_function("j0l")
-        .blacklist_function("j1l")
-        .blacklist_function("jnl")
-        .blacklist_function("ldexpl")
-        .blacklist_function("lgammal")
-        .blacklist_function("lgammal_r")
-        .blacklist_function("llrintl")
-        .blacklist_function("llroundl")
-        .blacklist_function("log10l")
-        .blacklist_function("log1pl")
-        .blacklist_function("log2l")
-        .blacklist_function("logbl")
-        .blacklist_function("logl")
-        .blacklist_function("lrintl")
-        .blacklist_function("lroundl")
-        .blacklist_function("modfl")
-        .blacklist_function("nanl")
-        .blacklist_function("nearbyintl")
-        .blacklist_function("nextafterl")
-        .blacklist_function("nexttoward")
-        .blacklist_function("nexttowardf")
-        .blacklist_function("nexttowardl")
-        .blacklist_function("powl")
-        .blacklist_function("qecvt")
-        .blacklist_function("qecvt_r")
-        .blacklist_function("qfcvt")
-        .blacklist_function("qfcvt_r")
-        .blacklist_function("qgcvt")
-        .blacklist_function("remainderl")
-        .blacklist_function("remquol")
-        .blacklist_function("rintl")
-        .blacklist_function("roundl")
-        .blacklist_function("scalbl")
-        .blacklist_function("scalblnl")
-        .blacklist_function("scalbnl")
-        .blacklist_function("significandl")
-        .blacklist_function("sinhl")
-        .blacklist_function("sinl")
-        .blacklist_function("sqrtl")
-        .blacklist_function("strtold")
-        .blacklist_function("tanhl")
-        .blacklist_function("tanl")
-        .blacklist_function("tgammal")
-        .blacklist_function("truncl")
-        .blacklist_function("y0l")
-        .blacklist_function("y1l")
-        .blacklist_function("ynl")
+        .blocklist_function("acoshl")
+        .blocklist_function("acosl")
+        .blocklist_function("asinhl")
+        .blocklist_function("asinl")
+        .blocklist_function("atan2l")
+        .blocklist_function("atanhl")
+        .blocklist_function("atanl")
+        .blocklist_function("cbrtl")
+        .blocklist_function("ceill")
+        .blocklist_function("copysignl")
+        .blocklist_function("coshl")
+        .blocklist_function("cosl")
+        .blocklist_function("dreml")
+        .blocklist_function("ecvt_r")
+        .blocklist_function("erfcl")
+        .blocklist_function("erfl")
+        .blocklist_function("exp2l")
+        .blocklist_function("expl")
+        .blocklist_function("expm1l")
+        .blocklist_function("fabsl")
+        .blocklist_function("fcvt_r")
+        .blocklist_function("fdiml")
+        .blocklist_function("finitel")
+        .blocklist_function("floorl")
+        .blocklist_function("fmal")
+        .blocklist_function("fmaxl")
+        .blocklist_function("fminl")
+        .blocklist_function("fmodl")
+        .blocklist_function("frexpl")
+        .blocklist_function("gammal")
+        .blocklist_function("hypotl")
+        .blocklist_function("ilogbl")
+        .blocklist_function("isinfl")
+        .blocklist_function("isnanl")
+        .blocklist_function("j0l")
+        .blocklist_function("j1l")
+        .blocklist_function("jnl")
+        .blocklist_function("ldexpl")
+        .blocklist_function("lgammal")
+        .blocklist_function("lgammal_r")
+        .blocklist_function("llrintl")
+        .blocklist_function("llroundl")
+        .blocklist_function("log10l")
+        .blocklist_function("log1pl")
+        .blocklist_function("log2l")
+        .blocklist_function("logbl")
+        .blocklist_function("logl")
+        .blocklist_function("lrintl")
+        .blocklist_function("lroundl")
+        .blocklist_function("modfl")
+        .blocklist_function("nanl")
+        .blocklist_function("nearbyintl")
+        .blocklist_function("nextafterl")
+        .blocklist_function("nexttoward")
+        .blocklist_function("nexttowardf")
+        .blocklist_function("nexttowardl")
+        .blocklist_function("powl")
+        .blocklist_function("qecvt")
+        .blocklist_function("qecvt_r")
+        .blocklist_function("qfcvt")
+        .blocklist_function("qfcvt_r")
+        .blocklist_function("qgcvt")
+        .blocklist_function("remainderl")
+        .blocklist_function("remquol")
+        .blocklist_function("rintl")
+        .blocklist_function("roundl")
+        .blocklist_function("scalbl")
+        .blocklist_function("scalblnl")
+        .blocklist_function("scalbnl")
+        .blocklist_function("significandl")
+        .blocklist_function("sinhl")
+        .blocklist_function("sinl")
+        .blocklist_function("sqrtl")
+        .blocklist_function("strtold")
+        .blocklist_function("tanhl")
+        .blocklist_function("tanl")
+        .blocklist_function("tgammal")
+        .blocklist_function("truncl")
+        .blocklist_function("y0l")
+        .blocklist_function("y1l")
+        .blocklist_function("ynl")
         .rustified_enum("*")
         .prepend_enum_name(false)
         .derive_eq(true)
