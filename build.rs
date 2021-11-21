@@ -167,6 +167,7 @@ fn fetch() -> io::Result<()> {
     if target_dir.exists() {
         return Ok(());
     }
+    // let _ = std::fs::remove_dir_all(output_base_path.join(&clone_dest_dir));
     let status = Command::new("git")
         .current_dir(&output_base_path)
         .arg("clone")
@@ -202,9 +203,12 @@ fn build() -> io::Result<()> {
     let mut configure = Command::new(&configure_path);
     configure.current_dir(&source_dir);
 
-    // enable v4l2 and show to open camera on LInux and Windows
-    configure.arg("--enable-libv4l2");
-    // configure.arg("--enable-indevs dshow");
+    // enable v4l2  dshow  avfoundation to open camera on LInux , Windows and macos
+    if cfg!(target_os = "linux") {
+        configure.arg("--disable-indevs");
+        configure.arg("--enable-libv4l2");
+        configure.arg("--enable-indev=v4l2");
+    }
 
     configure.arg(format!("--prefix={}", search().to_string_lossy()));
 
@@ -245,7 +249,8 @@ fn build() -> io::Result<()> {
     configure.arg("--enable-pic");
 
     // stop autodetected libraries enabling themselves, causing linking errors
-    configure.arg("--disable-autodetect");
+    // this option against with v4l2
+    // configure.arg("--disable-autodetect");
 
     // do not build programs since we don't need them
     configure.arg("--disable-programs");
@@ -269,7 +274,6 @@ fn build() -> io::Result<()> {
 
     // configure building libraries based on features
     for lib in LIBRARIES.iter().filter(|lib| lib.is_feature) {
-        println!("libname {}", lib.name);
         switch(&mut configure, &lib.name.to_uppercase(), lib.name);
     }
 
@@ -350,7 +354,6 @@ fn build() -> io::Result<()> {
     println!("configure: {}", String::from_utf8_lossy(&output.stdout));
     
     if !output.status.success() {
-
         return Err(io::Error::new(
             io::ErrorKind::Other,
             format!(
@@ -631,8 +634,14 @@ fn link_to_libraries(statik: bool) {
             println!("cargo:rustc-link-lib={}={}", ffmpeg_ty, lib.name);
         }
     }
-    if env::var("CARGO_FEATURE_BUILD_ZLIB").is_ok() && cfg!(target_os = "linux") {
+
+    if cfg!(target_os = "linux") {
+        println!("cargo:rustc-link-search=/usr/lib/x86_64-linux-gnu/");
+        println!("cargo:rustc-link-lib=v4l2");
+        println!("cargo:rustc-link-lib=v4lconvert");
+        println!("cargo:rustc-link-lib=jpeg");
         println!("cargo:rustc-link-lib=z");
+        println!("cargo:rustc-link-lib=lzma");
     }
 }
 
