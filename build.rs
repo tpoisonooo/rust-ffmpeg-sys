@@ -203,11 +203,24 @@ fn build() -> io::Result<()> {
     let mut configure = Command::new(&configure_path);
     configure.current_dir(&source_dir);
 
-    // enable v4l2  dshow  avfoundation to open camera on LInux , Windows and macos
-    if cfg!(target_os = "linux") {
-        configure.arg("--disable-indevs");
-        configure.arg("--enable-libv4l2");
-        configure.arg("--enable-indev=v4l2");
+    // disable all encoders
+    configure.arg("--disable-encoders");
+    // diable all outdevs
+    configure.arg("--disable-outdevs");
+    // disable all indevs at first, if need camera then enable it 
+    configure.arg("--disable-indevs");
+
+    if cfg!(feature = "open-camera") {
+        if cfg!(target_os = "linux") {
+            configure.arg("--enable-libv4l2");
+            configure.arg("--enable-indev=v4l2");
+        } else {
+            println!("windows dshow and macos avfoundation not implemented!");
+        }
+    } else {
+        // stop autodetected libraries enabling themselves, causing linking errors
+        // this option against with v4l2
+        configure.arg("--disable-autodetect");
     }
 
     configure.arg(format!("--prefix={}", search().to_string_lossy()));
@@ -248,10 +261,6 @@ fn build() -> io::Result<()> {
 
     configure.arg("--enable-pic");
 
-    // stop autodetected libraries enabling themselves, causing linking errors
-    // this option against with v4l2
-    // configure.arg("--disable-autodetect");
-
     // do not build programs since we don't need them
     configure.arg("--disable-programs");
 
@@ -290,51 +299,54 @@ fn build() -> io::Result<()> {
     enable!(configure, "BUILD_LIB_FRIBIDI", "libfribidi");
     enable!(configure, "BUILD_LIB_OPENCV", "libopencv");
 
-    // disable all encoders
-    configure.arg("--disable-encoders");
-    // diable all outdevs
-    configure.arg("--disable-outdevs");
+    if cfg!(feature="disable-audio-subtitle") {
+        // see  https://ffmpeg.org/ffmpeg-codecs.html
+        configure.arg("--disable-decoder=ac3");
+        configure.arg("--disable-decoder=flac");
+        configure.arg("--disable-decoder=ffwavesynth");
+        configure.arg("--disable-decoder=libgsm");
 
-    
-    // enable!(configure, "BUILD_LIB_CELT", "libcelt");
-    // enable!(configure, "BUILD_LIB_FAAC", "libfaac");
-    // enable!(configure, "BUILD_LIB_FDK_AAC", "libfdk-aac");
-    // enable!(configure, "BUILD_LIB_MP3LAME", "libmp3lame");
-    // enable!(configure, "BUILD_LIB_OPENCORE_AMRNB", "libopencore-amrnb");
-    // enable!(configure, "BUILD_LIB_OPENCORE_AMRWB", "libopencore-amrwb");
-    // enable!(configure, "BUILD_LIB_OPUS", "libopus");
-    // enable!(configure, "BUILD_LIB_SCHROEDINGER", "libschroedinger");
-    // enable!(configure, "BUILD_LIB_SHINE", "libshine");
-    // enable!(configure, "BUILD_LIB_SPEEX", "libspeex");
-    // enable!(configure, "BUILD_LIB_VO_AACENC", "libvo-aacenc");
-    // enable!(configure, "BUILD_LIB_VO_AMRWBENC", "libvo-amrwbenc");
+        configure.arg("--disable-decoder=libilbc");
+        configure.arg("--disable-decoder=libgsm");
+        // amr docoders
+        configure.arg("--disable-decoder=libopencore-amrnb");
+        configure.arg("--disable-decoder=libopencore-amrwb");
+        // raw audio format
+        configure.arg("--disable-decoder=libopus");
+
+        // disable subtitle format
+        configure.arg("--disable-decoder=libaribb24");
+        configure.arg("--disable-decoder=dvbsub");
+        configure.arg("--disable-decoder=dvdsub");
+        configure.arg("--disable-decoder=libzvbi-teletext");
+    }
 
     // configure external encoders
-    enable!(configure, "BUILD_LIB_AACPLUS", "libaacplus");
-    enable!(configure, "BUILD_LIB_DCADEC", "libdcadec");
-    enable!(configure, "BUILD_LIB_GSM", "libgsm");
-    enable!(configure, "BUILD_LIB_ILBC", "libilbc");
-    enable!(configure, "BUILD_LIB_VAZAAR", "libvazaar");
-    enable!(configure, "BUILD_LIB_OPENH264", "libopenh264");
-    enable!(configure, "BUILD_LIB_OPENH265", "libopenh265");
-    enable!(configure, "BUILD_LIB_OPENJPEG", "libopenjpeg");
-    enable!(configure, "BUILD_LIB_SNAPPY", "libsnappy");
-    enable!(
-        configure,
-        "BUILD_LIB_STAGEFRIGHT_H264",
-        "libstagefright-h264"
-    );
-    enable!(configure, "BUILD_LIB_THEORA", "libtheora");
-    enable!(configure, "BUILD_LIB_TWOLAME", "libtwolame");
-    enable!(configure, "BUILD_LIB_UTVIDEO", "libutvideo");
-    enable!(configure, "BUILD_LIB_VORBIS", "libvorbis");
-    enable!(configure, "BUILD_LIB_VPX", "libvpx");
-    enable!(configure, "BUILD_LIB_WAVPACK", "libwavpack");
-    enable!(configure, "BUILD_LIB_WEBP", "libwebp");
-    enable!(configure, "BUILD_LIB_X264", "libx264");
-    enable!(configure, "BUILD_LIB_X265", "libx265");
-    enable!(configure, "BUILD_LIB_AVS", "libavs");
-    enable!(configure, "BUILD_LIB_XVID", "libxvid");
+    // enable!(configure, "BUILD_LIB_AACPLUS", "libaacplus");
+    // enable!(configure, "BUILD_LIB_DCADEC", "libdcadec");
+    // enable!(configure, "BUILD_LIB_GSM", "libgsm");
+    // enable!(configure, "BUILD_LIB_ILBC", "libilbc");
+    // enable!(configure, "BUILD_LIB_VAZAAR", "libvazaar");
+    // enable!(configure, "BUILD_LIB_OPENH264", "libopenh264");
+    // enable!(configure, "BUILD_LIB_OPENH265", "libopenh265");
+    // enable!(configure, "BUILD_LIB_OPENJPEG", "libopenjpeg");
+    // enable!(configure, "BUILD_LIB_SNAPPY", "libsnappy");
+    // enable!(
+    //     configure,
+    //     "BUILD_LIB_STAGEFRIGHT_H264",
+    //     "libstagefright-h264"
+    // );
+    // enable!(configure, "BUILD_LIB_THEORA", "libtheora");
+    // enable!(configure, "BUILD_LIB_TWOLAME", "libtwolame");
+    // enable!(configure, "BUILD_LIB_UTVIDEO", "libutvideo");
+    // enable!(configure, "BUILD_LIB_VORBIS", "libvorbis");
+    // enable!(configure, "BUILD_LIB_VPX", "libvpx");
+    // enable!(configure, "BUILD_LIB_WAVPACK", "libwavpack");
+    // enable!(configure, "BUILD_LIB_WEBP", "libwebp");
+    // enable!(configure, "BUILD_LIB_X264", "libx264");
+    // enable!(configure, "BUILD_LIB_X265", "libx265");
+    // enable!(configure, "BUILD_LIB_AVS", "libavs");
+    // enable!(configure, "BUILD_LIB_XVID", "libxvid");
 
     // other external libraries
     enable!(configure, "BUILD_LIB_DRM", "libdrm");
@@ -636,12 +648,15 @@ fn link_to_libraries(statik: bool) {
     }
 
     if cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-search=/usr/lib/x86_64-linux-gnu/");
-        println!("cargo:rustc-link-lib=v4l2");
-        println!("cargo:rustc-link-lib=v4lconvert");
-        println!("cargo:rustc-link-lib=jpeg");
         println!("cargo:rustc-link-lib=z");
-        println!("cargo:rustc-link-lib=lzma");
+
+        if cfg!(feature = "open-camera") {
+            println!("cargo:rustc-link-search=/usr/lib/x86_64-linux-gnu/");
+            println!("cargo:rustc-link-lib=v4l2");
+            println!("cargo:rustc-link-lib=v4lconvert");
+            println!("cargo:rustc-link-lib=jpeg");
+            println!("cargo:rustc-link-lib=lzma");
+        }
     }
 }
 

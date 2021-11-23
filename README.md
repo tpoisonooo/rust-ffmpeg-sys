@@ -29,3 +29,18 @@ In addition to feature flags declared in `Cargo.toml`, this crate performs vario
 - `ff_api_<feature>`, e.g. `ff_api_vaapi`, corresponding to whether their respective uppercase deprecation guards evaluate to true.
 
 - `ff_api_<feature>_is_defined`, e.g. `ff_api_vappi_is_defined`, similar to above except these are enabled as long as the corresponding deprecation guards are defined.
+
+
+## New Feature
+
+Add two feature in `Cargo.toml`
+
+* open-camera on ubuntu, windows dshow and macos avfoundation not implemented
+* disable-audio-subtitle. remove audio/subtitle decoder by default
+
+if you want to open camera directly. 
+
+```bash
+$ cargo clean   # must clean first
+$ cargo build --features="open-camera"
+``
