@@ -230,6 +230,12 @@ fn build() -> io::Result<()> {
         configure.arg("--enable-stripping");
     }
 
+    // disable all encoders
+    configure.arg("--disable-encoders");
+    // diable all inoutdevs
+    configure.arg("--disable-indevs");
+    configure.arg("--disable-outdevs");
+
     // make it static
     configure.arg("--enable-static");
     configure.arg("--disable-shared");
