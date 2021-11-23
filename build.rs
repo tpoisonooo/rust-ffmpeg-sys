@@ -207,7 +207,7 @@ fn build() -> io::Result<()> {
     configure.arg("--disable-encoders");
     // diable all outdevs
     configure.arg("--disable-outdevs");
-    // disable all indevs at first, if need camera then enable it 
+    // disable all indevs at first, if need camera then enable it
     configure.arg("--disable-indevs");
 
     if cfg!(feature = "open-camera") {
@@ -299,7 +299,7 @@ fn build() -> io::Result<()> {
     enable!(configure, "BUILD_LIB_FRIBIDI", "libfribidi");
     enable!(configure, "BUILD_LIB_OPENCV", "libopencv");
 
-    if cfg!(feature="disable-audio-subtitle") {
+    if cfg!(feature = "disable-audio-subtitle") {
         // see  https://ffmpeg.org/ffmpeg-codecs.html
         configure.arg("--disable-decoder=ac3");
         configure.arg("--disable-decoder=flac");
@@ -326,17 +326,18 @@ fn build() -> io::Result<()> {
     // enable!(configure, "BUILD_LIB_DCADEC", "libdcadec");
     // enable!(configure, "BUILD_LIB_GSM", "libgsm");
     // enable!(configure, "BUILD_LIB_ILBC", "libilbc");
+    // video encoder
     // enable!(configure, "BUILD_LIB_VAZAAR", "libvazaar");
     // enable!(configure, "BUILD_LIB_OPENH264", "libopenh264");
     // enable!(configure, "BUILD_LIB_OPENH265", "libopenh265");
-    // enable!(configure, "BUILD_LIB_OPENJPEG", "libopenjpeg");
     // enable!(configure, "BUILD_LIB_SNAPPY", "libsnappy");
+    // enable!(configure, "BUILD_LIB_THEORA", "libtheora");
+    // enable!(configure, "BUILD_LIB_OPENJPEG", "libopenjpeg");
     // enable!(
     //     configure,
     //     "BUILD_LIB_STAGEFRIGHT_H264",
     //     "libstagefright-h264"
     // );
-    // enable!(configure, "BUILD_LIB_THEORA", "libtheora");
     // enable!(configure, "BUILD_LIB_TWOLAME", "libtwolame");
     // enable!(configure, "BUILD_LIB_UTVIDEO", "libutvideo");
     // enable!(configure, "BUILD_LIB_VORBIS", "libvorbis");
@@ -364,7 +365,7 @@ fn build() -> io::Result<()> {
         .output()
         .unwrap_or_else(|_| panic!("{:?} failed", configure));
     println!("configure: {}", String::from_utf8_lossy(&output.stdout));
-    
+
     if !output.status.success() {
         return Err(io::Error::new(
             io::ErrorKind::Other,
@@ -648,14 +649,16 @@ fn link_to_libraries(statik: bool) {
     }
 
     if cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-lib=z");
-
         if cfg!(feature = "open-camera") {
             println!("cargo:rustc-link-search=/usr/lib/x86_64-linux-gnu/");
             println!("cargo:rustc-link-lib=v4l2");
             println!("cargo:rustc-link-lib=v4lconvert");
             println!("cargo:rustc-link-lib=jpeg");
             println!("cargo:rustc-link-lib=lzma");
+        }
+
+        if env::var("CARGO_FEATURE_BUILD_ZLIB").is_ok() {
+            println!("cargo:rustc-link-lib=z");
         }
     }
 }
