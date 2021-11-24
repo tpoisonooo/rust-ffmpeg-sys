@@ -256,8 +256,8 @@ fn build() -> io::Result<()> {
     }
 
     // make it static
-    configure.arg("--enable-static");
-    configure.arg("--disable-shared");
+    configure.arg("--enable-shared");
+    configure.arg("--disable-static");
 
     configure.arg("--enable-pic");
 
