@@ -470,6 +470,9 @@ fn softlink(base: &Path) {
     tofile
         .write_all(base.as_os_str().to_str().unwrap().as_bytes())
         .expect("write so list failed");
+    tofile
+        .write_all("\n".as_bytes())
+        .expect("write so list failed");
     for lib in LIBRARIES {
         let name = format!("{}{}{}", "lib", lib.name, ".so");
         let so_fullpath = base.join("lib").join(name);
