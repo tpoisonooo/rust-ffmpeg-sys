@@ -43,4 +43,4 @@ if you want to open camera directly.
 ```bash
 $ cargo clean   # must clean first
 $ cargo build --features="open-camera"
-``
+```
