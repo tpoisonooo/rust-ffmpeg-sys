@@ -6,7 +6,7 @@ extern crate pkg_config;
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
 
@@ -273,13 +273,13 @@ fn build() -> io::Result<()> {
     }
 
     // the binary using ffmpeg-sys must comply with GPL
-    switch(&mut configure, "BUILD_LICENSE_GPL", "gpl");
+    // switch(&mut configure, "BUILD_LICENSE_GPL", "gpl");
 
     // the binary using ffmpeg-sys must comply with (L)GPLv3
     switch(&mut configure, "BUILD_LICENSE_VERSION3", "version3");
 
     // the binary using ffmpeg-sys cannot be redistributed
-    switch(&mut configure, "BUILD_LICENSE_NONFREE", "nonfree");
+    // switch(&mut configure, "BUILD_LICENSE_NONFREE", "nonfree");
 
     // configure building libraries based on features
     for lib in LIBRARIES.iter().filter(|lib| lib.is_feature) {
@@ -319,6 +319,68 @@ fn build() -> io::Result<()> {
         configure.arg("--disable-decoder=dvbsub");
         configure.arg("--disable-decoder=dvdsub");
         configure.arg("--disable-decoder=libzvbi-teletext");
+
+        // disable all mp2
+        configure.arg("--disable-decoder=mp2");
+        configure.arg("--disable-decoder=mp2float");
+
+        // disable all mp3
+        configure.arg("--disable-decoder=mp3");
+        configure.arg("--disable-decoder=mp3float");
+        configure.arg("--disable-decoder=mp3adu");
+        configure.arg("--disable-decoder=mp3adufloat");
+        configure.arg("--disable-decoder=mp3on4");
+        configure.arg("--disable-decoder=mp3on4float");
+
+        // disable opus
+        configure.arg("--disable-decoder=opus");
+
+        // disable all pcm
+        configure.arg("--disable-decoder=pcm");
+        configure.arg("--disable-decoder=pcm_alaw");
+        configure.arg("--disable-decoder=pcm_bluray");
+        configure.arg("--disable-decoder=pcm_dvd");
+        configure.arg("--disable-decoder=pcm_f16le");
+        configure.arg("--disable-decoder=pcm_f24le");
+        configure.arg("--disable-decoder=pcm_f32be");
+        configure.arg("--disable-decoder=pcm_f32le");
+
+        configure.arg("--disable-decoder=pcm_f64be");
+        configure.arg("--disable-decoder=pcm_f64le");
+
+        configure.arg("--disable-decoder=pcm_lxf");
+        configure.arg("--disable-decoder=pcm_mulaw");
+        configure.arg("--disable-decoder=pcm_s16be");
+        configure.arg("--disable-decoder=pcm_s16be_planar");
+
+        configure.arg("--disable-decoder=pcm_s16le");
+        configure.arg("--disable-decoder=pcm_s16le_planar");
+
+        configure.arg("--disable-decoder=pcm_s24be");
+        configure.arg("--disable-decoder=pcm_s24le");
+        configure.arg("--disable-decoder=pcm_s24le_planar");
+
+        configure.arg("--disable-decoder=pcm_s32be");
+        configure.arg("--disable-decoder=pcm_s32le");
+        configure.arg("--disable-decoder=pcm_s32le_planar");
+
+        configure.arg("--disable-decoder=pcm_s64be");
+        configure.arg("--disable-decoder=pcm_s64le");
+
+        configure.arg("--disable-decoder=pcm_s8");
+        configure.arg("--disable-decoder=pcm_s8_planar");
+
+        configure.arg("--disable-decoder=pcm_u16be");
+        configure.arg("--disable-decoder=pcm_u16le");
+
+        configure.arg("--disable-decoder=pcm_u24be");
+        configure.arg("--disable-decoder=pcm_u24le");
+
+        configure.arg("--disable-decoder=pcm_u32be");
+        configure.arg("--disable-decoder=pcm_u32le");
+
+        configure.arg("--disable-decoder=pcm_u8");
+        configure.arg("--disable-decoder=pcm_vidc");
     }
 
     // configure external encoders
@@ -400,6 +462,29 @@ fn build() -> io::Result<()> {
     Ok(())
 }
 
+fn softlink(base: &Path) {
+    let path = env::var("HOME").unwrap();
+    let script = PathBuf::from(path).join("megflow_ffmpeg_dynamic_link.sh");
+    let mut tofile = fs::File::create(script).expect("create script failed");
+
+    tofile
+        .write_all(base.as_os_str().to_str().unwrap().as_bytes())
+        .expect("write so list failed");
+    for lib in LIBRARIES {
+        let name = format!("{}{}{}", "lib", lib.name, ".so");
+        let so_fullpath = base.join("lib").join(name);
+        if so_fullpath.exists() {
+            tofile
+                .write_all(so_fullpath.as_os_str().to_str().unwrap().as_bytes())
+                .expect("write so list failed");
+            tofile
+                .write_all("\n".as_bytes())
+                .expect("write so list failed");
+        }
+    }
+    tofile.flush().expect("file flush failed");
+}
+
 #[cfg(not(target_env = "msvc"))]
 fn try_vcpkg(_statik: bool) -> Option<Vec<PathBuf>> {
     None
@@ -436,7 +521,7 @@ fn check_features(
         let include = format!("#include <{}>", header);
         if !includes_code.contains(&include) {
             includes_code.push_str(&include);
-            includes_code.push_str(&"\n");
+            includes_code.push('\n');
         }
         includes_code.push_str(&format!(
             r#"
@@ -651,6 +736,7 @@ fn link_to_libraries(statik: bool) {
     if cfg!(target_os = "linux") {
         if cfg!(feature = "open-camera") {
             println!("cargo:rustc-link-search=/usr/lib/x86_64-linux-gnu/");
+            println!("cargo:rustc-link-search=/usr/lib/aarch64-linux-gnu/");
             println!("cargo:rustc-link-lib=v4l2");
             println!("cargo:rustc-link-lib=v4lconvert");
             println!("cargo:rustc-link-lib=jpeg");
@@ -676,6 +762,7 @@ fn main() {
             fs::create_dir_all(&output()).expect("failed to create build directory");
             fetch().unwrap();
             build().unwrap();
+            softlink(&search());
         }
 
         // Check additional required libraries.
@@ -685,7 +772,7 @@ fn main() {
             let reader = BufReader::new(file);
             let extra_libs = reader
                 .lines()
-                .find(|ref line| line.as_ref().unwrap().starts_with("EXTRALIBS"))
+                .find(|line| line.as_ref().unwrap().starts_with("EXTRALIBS"))
                 .map(|line| line.unwrap())
                 .unwrap();
 
@@ -704,6 +791,7 @@ fn main() {
     // Use prebuilt library
     else if let Ok(ffmpeg_dir) = env::var("FFMPEG_DIR") {
         let ffmpeg_dir = PathBuf::from(ffmpeg_dir);
+        softlink(&ffmpeg_dir);
         println!(
             "cargo:rustc-link-search=native={}",
             ffmpeg_dir.join("lib").to_string_lossy()
