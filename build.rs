@@ -194,7 +194,7 @@ fn switch(configure: &mut Command, feature: &str, name: &str) {
     configure.arg(arg.to_string() + name);
 }
 
-fn build() -> io::Result<()> {
+fn build(statik: bool) -> io::Result<()> {
     let source_dir = source();
 
     // Command's path is not relative to command's current_dir
@@ -256,8 +256,13 @@ fn build() -> io::Result<()> {
     }
 
     // make it static
-    configure.arg("--enable-shared");
-    configure.arg("--disable-static");
+    if statik {
+        configure.arg("--enable-static");
+        configure.arg("--disable-shared");
+    } else {
+        configure.arg("--enable-shared");
+        configure.arg("--disable-static");
+    }
 
     configure.arg("--enable-pic");
 
@@ -764,7 +769,7 @@ fn main() {
         if fs::metadata(&search().join("lib").join("libavutil.a")).is_err() {
             fs::create_dir_all(&output()).expect("failed to create build directory");
             fetch().unwrap();
-            build().unwrap();
+            build(statik).unwrap();
             softlink(&search());
         }
 
