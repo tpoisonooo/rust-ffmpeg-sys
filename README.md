@@ -43,7 +43,7 @@ if you want to open camera on Linux.
 ```bash
 $ cargo clean   # must clean first
 $ cargo build --features="open-camera"
-``
+```
 
 if you want to build static lib
 ```bash
