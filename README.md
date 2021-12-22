@@ -38,9 +38,15 @@ Add two feature in `Cargo.toml`
 * open-camera on ubuntu, windows dshow and macos avfoundation not implemented
 * disable-audio-subtitle. remove audio/subtitle decoder by default
 
-if you want to open camera directly. 
+if you want to open camera on Linux. 
 
 ```bash
 $ cargo clean   # must clean first
 $ cargo build --features="open-camera"
+```
+
+if you want to build static lib
+```bash
+$ export CARGO_BUILD_STATIC="static"
+$ cargo build
 ```
