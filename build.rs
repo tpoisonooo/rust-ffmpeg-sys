@@ -758,7 +758,8 @@ fn link_to_libraries(statik: bool) {
 }
 
 fn main() {
-    let statik = env::var("CARGO_FEATURE_STATIC").is_ok();
+    let dynamic = env::var("CARGO_FEATURE_DYNAMIC").is_ok();
+    let statik = !dynamic;
 
     let include_paths: Vec<PathBuf> = if env::var("CARGO_FEATURE_PREBUILD").is_err() {
         println!(
