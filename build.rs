@@ -758,6 +758,7 @@ fn link_to_libraries(statik: bool) {
 }
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_DYNAMIC");
     let dynamic = env::var("CARGO_FEATURE_DYNAMIC").is_ok();
     let statik = !dynamic;
 
