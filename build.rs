@@ -766,14 +766,14 @@ fn main() {
             "cargo:rustc-link-search=native={}",
             search().join("lib").to_string_lossy()
         );
-        if dynamic {
-            link_to_libraries(statik);
-        }
+        link_to_libraries(statik);
         if fs::metadata(&search().join("lib").join("libavutil.a")).is_err() {
             fs::create_dir_all(&output()).expect("failed to create build directory");
             fetch().unwrap();
             build(statik).unwrap();
-            softlink(&search());
+            if dynamic {
+                softlink(&search());
+            }
         }
 
         // Check additional required libraries.
