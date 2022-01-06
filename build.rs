@@ -468,8 +468,7 @@ fn build(statik: bool) -> io::Result<()> {
 }
 
 fn softlink(base: &Path) {
-    let path = env::var("HOME").unwrap();
-    let script = PathBuf::from(path).join("megflow_ffmpeg_dynamic_link.sh");
+    let script = PathBuf::from("/tmp").join("megflow_ffmpeg_dynamic_link.sh");
     let mut tofile = fs::File::create(script).expect("create script failed");
 
     tofile
@@ -767,7 +766,9 @@ fn main() {
             "cargo:rustc-link-search=native={}",
             search().join("lib").to_string_lossy()
         );
-        link_to_libraries(statik);
+        if dynamic {
+            link_to_libraries(statik);
+        }
         if fs::metadata(&search().join("lib").join("libavutil.a")).is_err() {
             fs::create_dir_all(&output()).expect("failed to create build directory");
             fetch().unwrap();
@@ -801,7 +802,9 @@ fn main() {
     // Use prebuilt library
     else if let Ok(ffmpeg_dir) = env::var("FFMPEG_DIR") {
         let ffmpeg_dir = PathBuf::from(ffmpeg_dir);
-        softlink(&ffmpeg_dir);
+        if dynamic {
+            softlink(&ffmpeg_dir);
+        }
         println!(
             "cargo:rustc-link-search=native={}",
             ffmpeg_dir.join("lib").to_string_lossy()
